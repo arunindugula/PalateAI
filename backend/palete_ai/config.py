@@ -43,4 +43,7 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY)
 llm = ChatOpenAI(model="gpt-4o", temperature=0.3)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
+# ── Internal API ─────────────────────────────────────────────
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+
 logger.info("OpenAI clients initialised  (model: gpt-4o, embeddings: text-embedding-3-small)")
