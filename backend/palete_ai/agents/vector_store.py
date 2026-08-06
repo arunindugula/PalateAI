@@ -42,7 +42,17 @@ def load_menu_items(data_path: Path = DATA_PATH) -> list[dict]:
 
 
 def build_vectorstore() -> Chroma:
-    """Create a persisted ChromaDB collection from the menu catalog."""
+    """Rebuild the persisted ChromaDB collection from the menu catalog.
+
+    Deletes any existing collection first so stale/duplicate items from a
+    previous version of the JSON data don't linger.
+    """
+    Chroma(
+        collection_name=COLLECTION_NAME,
+        embedding_function=embeddings,
+        persist_directory=str(CHROMA_PATH),
+    ).delete_collection()
+
     docs = _build_documents(load_menu_items())
     store = Chroma.from_documents(
         documents=docs,
@@ -54,12 +64,25 @@ def build_vectorstore() -> Chroma:
     return store
 
 
+def load_vectorstore() -> Chroma:
+    """Open the persisted ChromaDB collection, building it first if missing."""
+    store = Chroma(
+        collection_name=COLLECTION_NAME,
+        embedding_function=embeddings,
+        persist_directory=str(CHROMA_PATH),
+    )
+    if store._collection.count() == 0:
+        logger.info("No existing vector store found, building a new one")
+        store = build_vectorstore()
+    return store
+
+
 _product_vectorstore: Chroma | None = None
 
 
 def get_vectorstore() -> Chroma:
-    """Lazily build the vector store on first use, then reuse it."""
+    """Lazily load the vector store on first use, then reuse it."""
     global _product_vectorstore
     if _product_vectorstore is None:
-        _product_vectorstore = build_vectorstore()
+        _product_vectorstore = load_vectorstore()
     return _product_vectorstore
