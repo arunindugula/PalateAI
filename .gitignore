@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ChromaDB persisted data
+chroma_db/
+
+# Claude Code local settings (personal, not shared)
+.claude/
+
+# macOS system files
+.DS_Store
+.DS_Store?
+**/._*
