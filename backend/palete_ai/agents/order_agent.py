@@ -8,6 +8,7 @@ tool-calling loop that performs the actual lookup.
 import re
 
 from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -26,7 +27,11 @@ order tracking system.
 Use the lookup_order tool to look up the customer's order by their Order ID,
 Tracking ID, or email address. Only answer using what the tool returns — don't
 invent order details. If the tool finds nothing, say so and ask the customer
-to double-check the identifier."""
+to double-check the identifier.
+
+If the user's message also asks about food or menu items, ignore that part
+entirely — a separate menu agent handles it and will answer it directly.
+Only respond to the order-tracking part of the message."""
 
 IDENTIFIER_PATTERN = re.compile(
     r"(?P<email>[\w.+-]+@[\w-]+\.[A-Za-z]{2,})"
@@ -65,8 +70,14 @@ def ensure_identifier(state: AgentState) -> dict:
     return {"messages": new_messages} if new_messages else {}
 
 
-def build_order_agent() -> CompiledStateGraph:
-    """Wire the identifier guard together with a Menu-Agent-style tool-calling loop."""
+def build_order_agent(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+    """Wire the identifier guard together with a Menu-Agent-style tool-calling loop.
+
+    Pass checkpointer=None (the default) to build a version meant to be
+    nested as a subgraph node (e.g. inside the orchestrator), which relies on
+    the parent graph's checkpointer instead of its own — this is required
+    for interrupt()/resume to propagate correctly through the parent.
+    """
     tool_loop = create_react_agent(
         model=llm,
         tools=[lookup_order],
@@ -81,7 +92,7 @@ def build_order_agent() -> CompiledStateGraph:
     graph.add_edge("ensure_identifier", "agent")
     graph.add_edge("agent", END)
 
-    compiled = graph.compile(checkpointer=InMemorySaver())
+    compiled = graph.compile(checkpointer=checkpointer)
     logger.info("Order agent ready")
     return compiled
 
@@ -90,10 +101,10 @@ _order_agent: CompiledStateGraph | None = None
 
 
 def get_order_agent() -> CompiledStateGraph:
-    """Lazily build the order agent on first use, then reuse it."""
+    """Lazily build the standalone order agent (own checkpointer) on first use."""
     global _order_agent
     if _order_agent is None:
-        _order_agent = build_order_agent()
+        _order_agent = build_order_agent(checkpointer=InMemorySaver())
     return _order_agent
 
 

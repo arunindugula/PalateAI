@@ -40,7 +40,7 @@ if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("sk-your"):
 
 # ── Clients ──────────────────────────────────────────────────
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-llm = ChatOpenAI(model="gpt-4o", temperature=0.3)
+llm = ChatOpenAI(model="gpt-5.4-mini", temperature=0.3)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 # ── Internal API ─────────────────────────────────────────────

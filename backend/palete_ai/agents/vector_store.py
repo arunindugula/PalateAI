@@ -1,5 +1,7 @@
 """Builds a Chroma vector store from the restaurant menu JSON data."""
 
+import threading
+
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
@@ -78,11 +80,19 @@ def load_vectorstore() -> Chroma:
 
 
 _product_vectorstore: Chroma | None = None
+_vectorstore_lock = threading.Lock()
 
 
 def get_vectorstore() -> Chroma:
-    """Lazily load the vector store on first use, then reuse it."""
+    """Lazily load the vector store on first use, then reuse it.
+
+    Guarded by a lock: agents can run concurrently (e.g. the orchestrator's
+    parallel Send() dispatch), and chromadb's PersistentClient isn't safe
+    against two threads initialising the same path at once.
+    """
     global _product_vectorstore
     if _product_vectorstore is None:
-        _product_vectorstore = load_vectorstore()
+        with _vectorstore_lock:
+            if _product_vectorstore is None:
+                _product_vectorstore = load_vectorstore()
     return _product_vectorstore

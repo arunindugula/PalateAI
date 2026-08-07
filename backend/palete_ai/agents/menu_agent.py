@@ -1,5 +1,6 @@
 """A menu agent that answers questions by searching the restaurant's vector store."""
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
@@ -15,17 +16,27 @@ SYSTEM_PROMPT = """You are a helpful assistant for a restaurant's menu.
 Use the search_product_catalog tool to look up menu items before answering
 questions about dishes, prices, categories, or recommendations. Only answer
 from what the tool returns — don't invent menu items or prices. If the tool
-finds nothing relevant, say so instead of guessing."""
+finds nothing relevant, say so instead of guessing.
+
+If the user's message also asks about an existing order (status, tracking,
+delivery), ignore that part entirely — a separate order-tracking agent
+handles it and will answer it directly. Only respond to the food/menu part
+of the message."""
 
 
-def build_menu_agent() -> CompiledStateGraph:
-    """Create the menu agent graph: an LLM wired to the catalog search tool."""
+def build_menu_agent(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+    """Create the menu agent graph: an LLM wired to the catalog search tool.
+
+    Pass checkpointer=None (the default) to build a version meant to be
+    nested as a subgraph node (e.g. inside the orchestrator), which relies on
+    the parent graph's checkpointer instead of its own.
+    """
     agent = create_react_agent(
         model=llm,
         tools=[search_product_catalog],
         prompt=SYSTEM_PROMPT,
         state_schema=AgentState,
-        checkpointer=InMemorySaver(),
+        checkpointer=checkpointer,
     )
     logger.info("Menu agent ready")
     return agent
@@ -35,10 +46,10 @@ _menu_agent: CompiledStateGraph | None = None
 
 
 def get_menu_agent() -> CompiledStateGraph:
-    """Lazily build the menu agent on first use, then reuse it."""
+    """Lazily build the standalone menu agent (own checkpointer) on first use."""
     global _menu_agent
     if _menu_agent is None:
-        _menu_agent = build_menu_agent()
+        _menu_agent = build_menu_agent(checkpointer=InMemorySaver())
     return _menu_agent
 
 
