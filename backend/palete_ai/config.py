@@ -46,4 +46,4 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 # ── Internal API ─────────────────────────────────────────────
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
-logger.info("OpenAI clients initialised  (model: gpt-4o, embeddings: text-embedding-3-small)")
+logger.info("OpenAI clients initialised  (model: %s, embeddings: text-embedding-3-small)", llm.model_name)
