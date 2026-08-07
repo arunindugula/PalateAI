@@ -20,6 +20,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
 
   const awaitingInputRef = useRef(false)
@@ -31,11 +32,19 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role, text }])
   }
 
+  function stopPlayback() {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+  }
+
   async function handleSendText(event: FormEvent) {
     event.preventDefault()
     const message = input.trim()
     if (!message || isSending) return
 
+    stopPlayback()
     setInput('')
     addMessage('user', message)
     setIsSending(true)
@@ -58,6 +67,7 @@ export default function ChatWidget() {
     if (isSending) return
 
     if (!isRecording) {
+      stopPlayback() // barge-in: interrupt whatever the agent is currently saying
       setStatusText('Listening…')
       try {
         await start()
@@ -115,16 +125,18 @@ export default function ChatWidget() {
         ))}
       </div>
 
-      <div className="chat-status">{statusText}</div>
+      <div className="chat-status">
+        {isPlaying ? 'Speaking… (tap 🎤 to interrupt)' : statusText}
+      </div>
 
       <form className="chat-input-row" onSubmit={handleSendText}>
         <button
           type="button"
-          className={`mic-button ${isRecording ? 'recording' : ''}`}
+          className={`mic-button ${isRecording ? 'recording' : ''} ${isPlaying ? 'playing' : ''}`}
           onClick={handleMicClick}
-          aria-label="Record voice message"
+          aria-label={isPlaying ? 'Interrupt and record a new message' : 'Record voice message'}
         >
-          {isRecording ? '⏹' : '🎤'}
+          {isRecording ? '⏹' : isPlaying ? '⏸' : '🎤'}
         </button>
         <input
           value={input}
@@ -137,7 +149,13 @@ export default function ChatWidget() {
         </button>
       </form>
 
-      <audio ref={audioRef} hidden />
+      <audio
+        ref={audioRef}
+        hidden
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+      />
     </div>
   )
 }

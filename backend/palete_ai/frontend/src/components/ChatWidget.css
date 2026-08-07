@@ -145,6 +145,11 @@
   animation: pulse 1.2s infinite;
 }
 
+.mic-button.playing {
+  background: #2b7a4b;
+  color: #fff;
+}
+
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(209, 59, 59, 0.5);
